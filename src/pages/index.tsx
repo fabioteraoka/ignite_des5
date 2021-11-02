@@ -1,13 +1,16 @@
 import { GetStaticProps } from 'next';
-import Link from 'next/link';
+import Head from 'next/head';
 import { FiCalendar, FiUser } from 'react-icons/fi';
 import Prismic from '@prismicio/client';
-import Header from '../components/Header';
-
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import Link from 'next/link';
+import { useState } from 'react';
 import { getPrismicClient } from '../services/prismic';
 
 import commonStyles from '../styles/common.module.scss';
 import styles from './home.module.scss';
+import Header from '../components/Header';
 
 interface Post {
   uid?: string;
@@ -29,27 +32,43 @@ interface HomeProps {
 }
 
 export default function Home({ postsPagination }: HomeProps): JSX.Element {
+  const formattedPost = postsPagination.results.map(post => {
+    return {
+      ...post,
+      first_publication_date: format(
+        new Date(post.first_publication_date),
+        'dd MMM yyyy',
+        {
+          locale: ptBR,
+        }
+      ),
+    };
+  });
+  const [posts, setPosts] = useState<Post[]>(formattedPost);
+
   return (
     <>
       <main className={commonStyles.container}>
         <Header />
         <div className={styles.posts}>
-          <Link href="/">
-            <a className={styles.post}>
-              <strong>Este Titulo</strong>
-              <p>Testo blog com informação sobre o tema</p>
-              <ul>
-                <li>
-                  <FiCalendar />
-                  <span>01/11/2021</span>
-                </li>
-                <li>
-                  <FiUser />
-                  Fabio Teraoka
-                </li>
-              </ul>
-            </a>
-          </Link>
+          {posts.map(post => (
+            <Link href={`/post/${post.uid}`} key={post.uid}>
+              <a className={styles.post}>
+                <strong>{post.data.title}</strong>
+                <p>{post.data.subtitle}</p>
+                <ul>
+                  <li>
+                    <FiCalendar />
+                    <span>{post.first_publication_date}</span>
+                  </li>
+                  <li>
+                    <FiUser />
+                    {post.data.author}
+                  </li>
+                </ul>
+              </a>
+            </Link>
+          ))}
           <button type="button" className={styles.button}>
             Carregar mais posts
           </button>
@@ -61,10 +80,11 @@ export default function Home({ postsPagination }: HomeProps): JSX.Element {
 
 export const getStaticProps: GetStaticProps = async () => {
   const prismic = getPrismicClient();
+
   const postsResponse = await prismic.query(
     [Prismic.Predicates.at('document.type', 'posts')],
     {
-      pageSize: 1,
+      pageSize: 3,
     }
   );
 
@@ -87,7 +107,7 @@ export const getStaticProps: GetStaticProps = async () => {
 
   return {
     props: {
-      posts: postsPagination,
+      postsPagination,
     },
   };
 };
